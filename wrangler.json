@@ -1,0 +1,16 @@
+{
+	"compatibility_date": "2025-10-08",
+	"main": "src/index.ts",
+	"name": "logtrace",
+	"upload_source_maps": true,
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_id": "33c0d2cd-6a3b-4cb1-8b11-572bc35186a8",
+			"database_name": "logtrace"
+		}
+	],
+	"observability": {
+		"enabled": true
+	}
+}
