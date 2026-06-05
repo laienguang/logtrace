@@ -1,6 +1,6 @@
 {
 	"name": "logtrace",
-	"description": "Cloudflare's native serverless SQL database.",
+	"description": "Lightweight event-tracking dashboard on Cloudflare Workers + D1.",
 	"cloudflare": {
 		"label": "Worker + D1 Database",
 		"products": [
@@ -21,11 +21,15 @@
 	},
 	"private": true,
 	"scripts": {
+		"postinstall": "npm --prefix web install",
 		"cf-typegen": "wrangler types",
 		"check": "tsc && wrangler deploy --dry-run",
+		"build:web": "npm --prefix web run build",
+		"dev:web": "npm --prefix web run dev",
+		"dev:worker": "wrangler dev --port 8282",
+		"dev": "npm run seedLocalD1 && npm run build:web && wrangler dev --port 8282",
 		"deploy": "wrangler deploy",
-		"dev": "pnpm seedLocalD1 && wrangler dev",
-		"predeploy": "wrangler d1 migrations apply DB --remote",
+		"predeploy": "npm run build:web && wrangler d1 migrations apply DB --remote",
 		"seedLocalD1": "wrangler d1 migrations apply DB --local"
 	}
 }
