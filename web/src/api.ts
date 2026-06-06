@@ -30,7 +30,10 @@ export interface EventItem {
 	event_name: string;
 	distinct_id: string | null;
 	user_id: string | null;
+	business_user_id: string | null;
 	session_id: string | null;
+	platform: string | null;
+	app_version: string | null;
 	client_ts: number | null;
 	server_ts: number;
 	url: string | null;

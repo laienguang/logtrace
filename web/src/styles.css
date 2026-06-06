@@ -85,6 +85,7 @@ main.content {
 	gap: 16px;
 	margin-bottom: 20px;
 }
+.cards.cards-3 { grid-template-columns: repeat(3, 1fr); }
 .card {
 	background: var(--surface);
 	border: 1px solid var(--border);

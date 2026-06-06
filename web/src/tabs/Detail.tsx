@@ -5,12 +5,20 @@ import { api, fetcher, type EventItem } from "../api";
 interface Filters {
 	event: string;
 	distinct_id: string;
-	user_id: string;
+	business_user_id: string;
+	platform: string;
 	from: string;
 	to: string;
 }
 
-const defaultFilters: Filters = { event: "", distinct_id: "", user_id: "", from: "", to: "" };
+const defaultFilters: Filters = {
+	event: "",
+	distinct_id: "",
+	business_user_id: "",
+	platform: "",
+	from: "",
+	to: "",
+};
 
 export function Detail({ appId }: { appId: string }) {
 	const [filters, setFilters] = useState<Filters>(defaultFilters);
@@ -28,7 +36,8 @@ export function Detail({ appId }: { appId: string }) {
 		if (appId) qs.set("app_id", appId);
 		if (applied.event) qs.set("event", applied.event);
 		if (applied.distinct_id) qs.set("distinct_id", applied.distinct_id);
-		if (applied.user_id) qs.set("user_id", applied.user_id);
+		if (applied.business_user_id) qs.set("business_user_id", applied.business_user_id);
+		if (applied.platform) qs.set("platform", applied.platform);
 		if (applied.from) qs.set("from", String(new Date(applied.from).getTime()));
 		if (applied.to) qs.set("to", String(new Date(applied.to).getTime()));
 		if (cur) qs.set("cursor", cur);
@@ -80,10 +89,21 @@ export function Detail({ appId }: { appId: string }) {
 					value={filters.distinct_id}
 					onChange={(e) => setFilters({ ...filters, distinct_id: e.target.value })}
 				/>
-				<input placeholder="user_id"
-					value={filters.user_id}
-					onChange={(e) => setFilters({ ...filters, user_id: e.target.value })}
+				<input placeholder="business_user_id"
+					value={filters.business_user_id}
+					onChange={(e) => setFilters({ ...filters, business_user_id: e.target.value })}
 				/>
+				<input list="platform-suggest" placeholder="platform"
+					value={filters.platform}
+					onChange={(e) => setFilters({ ...filters, platform: e.target.value })}
+					style={{ width: 120 }}
+				/>
+				<datalist id="platform-suggest">
+					<option value="web" />
+					<option value="ios" />
+					<option value="android" />
+					<option value="backend" />
+				</datalist>
 				<input type="datetime-local" value={filters.from}
 					onChange={(e) => setFilters({ ...filters, from: e.target.value })}
 				/>
@@ -105,7 +125,6 @@ export function Detail({ appId }: { appId: string }) {
 								<th style={{ width: 90 }}>app</th>
 								<th>event</th>
 								<th>distinct_id</th>
-								<th>user_id</th>
 								<th>url</th>
 								<th style={{ width: 50 }}></th>
 							</tr>
@@ -118,19 +137,22 @@ export function Detail({ appId }: { appId: string }) {
 										<td><span className="tag" title={e.app_id}>{e.app_name}</span></td>
 										<td>{e.event_name}</td>
 										<td className="muted">{e.distinct_id || "—"}</td>
-										<td className="muted">{e.user_id || "—"}</td>
 										<td className="muted" style={{ maxWidth: 300, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.url || "—"}</td>
 										<td className="muted">{expanded.has(e.id) ? "▾" : "▸"}</td>
 									</tr>
 									{expanded.has(e.id) && (
 										<tr key={`${e.id}-detail`}>
-											<td colSpan={7} style={{ background: "var(--surface-2)" }}>
+											<td colSpan={6} style={{ background: "var(--surface-2)" }}>
 												<pre>{JSON.stringify({
 													session_id: e.session_id,
 													client_ts: e.client_ts,
 													referrer: e.referrer,
 													ua: e.ua,
 													ip_country: e.ip_country,
+													user_id: e.user_id,
+													business_user_id: e.business_user_id,
+													platform: e.platform,
+													app_version: e.app_version,
 													props: e.props,
 												}, null, 2)}</pre>
 											</td>

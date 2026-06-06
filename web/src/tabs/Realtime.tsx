@@ -67,7 +67,6 @@ export function Realtime({ appId }: { appId: string }) {
 							<th style={{ width: 100 }}>app</th>
 							<th>event</th>
 							<th>distinct_id</th>
-							<th>user_id</th>
 							<th>url</th>
 							<th>props</th>
 						</tr>
@@ -79,7 +78,6 @@ export function Realtime({ appId }: { appId: string }) {
 								<td><span className="tag" title={e.app_id}>{e.app_name}</span></td>
 								<td>{e.event_name}</td>
 								<td className="muted">{e.distinct_id || "—"}</td>
-								<td className="muted">{e.user_id || "—"}</td>
 								<td className="muted">{e.url || "—"}</td>
 								<td><pre>{e.props ? JSON.stringify(e.props) : ""}</pre></td>
 							</tr>

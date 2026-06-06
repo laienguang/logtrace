@@ -8,7 +8,6 @@ interface Summary {
 	to: number;
 	pv: number;
 	uv: number;
-	users: number;
 	event_count: number;
 }
 interface TimeseriesResp {
@@ -75,10 +74,9 @@ export function Overview({ appId }: { appId: string }) {
 
 	return (
 		<>
-			<div className="cards">
+			<div className="cards cards-3">
 				<Card label="今日 PV" value={summary?.pv} />
 				<Card label="今日 UV" value={summary?.uv} />
-				<Card label="今日登录用户" value={summary?.users} />
 				<Card label="今日事件数" value={summary?.event_count} />
 			</div>
 			<div className="panel">

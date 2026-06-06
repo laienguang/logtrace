@@ -15,6 +15,9 @@ interface EventRow {
 	ip_country: string | null;
 	app_id: string;
 	props: string | null;
+	business_user_id: string | null;
+	platform: string | null;
+	app_version: string | null;
 }
 
 export async function handleEventsApi(request: Request, env: Env, url: URL): Promise<Response> {
@@ -26,7 +29,7 @@ export async function handleEventsApi(request: Request, env: Env, url: URL): Pro
 }
 
 const SELECT_COLS =
-	"id, event_name, distinct_id, user_id, session_id, client_ts, server_ts, url, referrer, ua, ip_country, app_id, props";
+	"id, event_name, distinct_id, user_id, session_id, client_ts, server_ts, url, referrer, ua, ip_country, app_id, props, business_user_id, platform, app_version";
 
 async function hydrate(rows: EventRow[], env: Env) {
 	const names = await loadAppNames(env);
@@ -53,14 +56,18 @@ async function list(env: Env, url: URL): Promise<Response> {
 
 	const eventName = sp.get("event");
 	const did = sp.get("distinct_id");
-	const uid = sp.get("user_id");
+	const buid = sp.get("business_user_id");
+	const platform = sp.get("platform");
 	const appId = sp.get("app_id");
 	const from = sp.get("from");
 	const to = sp.get("to");
 	if (eventName) { where.push("event_name = ?"); params.push(eventName); }
 	if (did) { where.push("distinct_id = ?"); params.push(did); }
-	if (uid) { where.push("user_id = ?"); params.push(uid); }
+	if (buid) { where.push("business_user_id = ?"); params.push(buid); }
+	if (platform) { where.push("platform = ?"); params.push(platform); }
 	if (appId) { where.push("app_id = ?"); params.push(appId); }
+	// user_id 过滤已移除：按文档语义 events.user_id 是应用归属管理员，按它过滤
+	// 与按 app_id 过滤几乎等价，对外暴露反而误导调用方。
 	if (from) { where.push("server_ts >= ?"); params.push(Number(from)); }
 	if (to) { where.push("server_ts < ?"); params.push(Number(to)); }
 

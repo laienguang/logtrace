@@ -4,7 +4,10 @@ import { corsHeaders } from "../cors";
 interface InboundEvent {
 	event_name?: unknown;
 	distinct_id?: unknown;
+	business_user_id?: unknown;
 	session_id?: unknown;
+	platform?: unknown;
+	app_version?: unknown;
 	client_ts?: unknown;
 	url?: unknown;
 	referrer?: unknown;
@@ -13,8 +16,11 @@ interface InboundEvent {
 
 const MAX_BATCH = 50;
 const MAX_EVENT_NAME = 64;
-const MAX_PROPS_BYTES = 4096;
+const MAX_PROPS_BYTES = 16384;       // 16KB; large enough to hold panic stacks / long prompts
 const MAX_URL = 2048;
+const MAX_BUSINESS_USER_ID = 64;
+const MAX_PLATFORM = 64;
+const MAX_APP_VERSION = 32;
 
 function jsonCors(body: unknown, status: number): Response {
 	return new Response(JSON.stringify(body), {
@@ -54,7 +60,23 @@ export async function handleCollect(request: Request, env: Env): Promise<Respons
 	const ua = request.headers.get("user-agent");
 	const country = (request as any).cf?.country ?? null;
 
-	type Row = [string, string | null, string | null, string | null, number | null, number, string | null, string | null, string | null, string | null, string, string | null];
+	type Row = [
+		string,         // event_name
+		string | null,  // distinct_id
+		string | null,  // user_id (server-filled from app.user_id)
+		string | null,  // session_id
+		number | null,  // client_ts
+		number,         // server_ts
+		string | null,  // url
+		string | null,  // referrer
+		string | null,  // ua
+		string | null,  // ip_country
+		string,         // app_id
+		string | null,  // props (JSON string)
+		string | null,  // business_user_id
+		string | null,  // platform
+		string | null,  // app_version
+	];
 	const rows: Row[] = [];
 	for (const e of inbound) {
 		if (typeof e?.event_name !== "string" || !e.event_name) {
@@ -93,12 +115,15 @@ export async function handleCollect(request: Request, env: Env): Promise<Respons
 			country,
 			app.app_id,
 			propsStr,
+			str(e.business_user_id, MAX_BUSINESS_USER_ID),
+			str(e.platform, MAX_PLATFORM),
+			str(e.app_version, MAX_APP_VERSION),
 		];
 		rows.push(row);
 	}
 
 	const stmt = env.DB.prepare(
-		"INSERT INTO events (event_name, distinct_id, user_id, session_id, client_ts, server_ts, url, referrer, ua, ip_country, app_id, props) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		"INSERT INTO events (event_name, distinct_id, user_id, session_id, client_ts, server_ts, url, referrer, ua, ip_country, app_id, props, business_user_id, platform, app_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
 	);
 	if (rows.length === 1) {
 		await stmt.bind(...rows[0]).run();
@@ -109,10 +134,10 @@ export async function handleCollect(request: Request, env: Env): Promise<Respons
 	return new Response(null, { status: 204, headers: corsHeaders() });
 }
 
-function str(v: unknown): string | null {
+function str(v: unknown, max: number = 256): string | null {
 	if (typeof v !== "string") return null;
 	const t = v.trim();
-	return t ? t.slice(0, 256) : null;
+	return t ? t.slice(0, max) : null;
 }
 
 function truncStr(v: unknown, max: number): string | null {

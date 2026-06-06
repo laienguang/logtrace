@@ -19,9 +19,10 @@ async function timeseries(env: Env, url: URL): Promise<Response> {
 	const to = Number(sp.get("to") || now);
 	const bucketMs = granularity === "day" ? 86400_000 : 3600_000;
 
+	// metric: pv | uv | count (events). user_id 已退化为「应用归属管理员」字段，
+	// 不再作为业务指标暴露，因此移除原先的 users 指标。
 	let agg: string;
 	if (metric === "uv") agg = "COUNT(DISTINCT distinct_id)";
-	else if (metric === "users") agg = "COUNT(DISTINCT CASE WHEN user_id IS NOT NULL AND user_id != '' THEN user_id END)";
 	else agg = "COUNT(*)";
 
 	const where: string[] = ["server_ts >= ?", "server_ts < ?"];
@@ -47,14 +48,14 @@ async function summary(env: Env, url: URL): Promise<Response> {
 	if (appId) { where.push("app_id = ?"); params.push(appId); }
 	const whereSql = "WHERE " + where.join(" AND ");
 
+	// users 字段去掉：events.user_id 是应用创建者，不是业务用户，COUNT(DISTINCT) 没意义
 	const row = await env.DB.prepare(
 		`SELECT COUNT(*) AS pv,
 		        COUNT(DISTINCT distinct_id) AS uv,
-		        COUNT(DISTINCT CASE WHEN user_id IS NOT NULL AND user_id != '' THEN user_id END) AS users,
 		        COUNT(*) AS event_count
 		 FROM events ${whereSql}`,
 	)
 		.bind(...params)
-		.first<{ pv: number; uv: number; users: number; event_count: number }>();
+		.first<{ pv: number; uv: number; event_count: number }>();
 	return json({ from, to: now, ...row });
 }
