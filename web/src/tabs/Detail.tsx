@@ -150,6 +150,7 @@ export function Detail({ appId }: { appId: string }) {
 													ua: e.ua,
 													ip_country: e.ip_country,
 													user_id: e.user_id,
+													event_id: e.event_id,
 													business_user_id: e.business_user_id,
 													platform: e.platform,
 													app_version: e.app_version,

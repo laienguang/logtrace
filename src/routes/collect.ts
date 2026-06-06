@@ -3,6 +3,7 @@ import { corsHeaders } from "../cors";
 
 interface InboundEvent {
 	event_name?: unknown;
+	event_id?: unknown;
 	distinct_id?: unknown;
 	business_user_id?: unknown;
 	session_id?: unknown;
@@ -16,6 +17,7 @@ interface InboundEvent {
 
 const MAX_BATCH = 50;
 const MAX_EVENT_NAME = 64;
+const MAX_EVENT_ID = 64;
 const MAX_PROPS_BYTES = 16384;       // 16KB; large enough to hold panic stacks / long prompts
 const MAX_URL = 2048;
 const MAX_BUSINESS_USER_ID = 64;
@@ -76,6 +78,7 @@ export async function handleCollect(request: Request, env: Env): Promise<Respons
 		string | null,  // business_user_id
 		string | null,  // platform
 		string | null,  // app_version
+		string | null,  // event_id (idempotency key; UNIQUE on (app_id, event_id) where not null)
 	];
 	const rows: Row[] = [];
 	for (const e of inbound) {
@@ -118,12 +121,16 @@ export async function handleCollect(request: Request, env: Env): Promise<Respons
 			str(e.business_user_id, MAX_BUSINESS_USER_ID),
 			str(e.platform, MAX_PLATFORM),
 			str(e.app_version, MAX_APP_VERSION),
+			str(e.event_id, MAX_EVENT_ID),
 		];
 		rows.push(row);
 	}
 
+	// INSERT OR IGNORE: rows with event_id that collide with existing (app_id, event_id)
+	// are silently skipped (idempotent dedup). Rows without event_id are unaffected because
+	// the UNIQUE index has WHERE event_id IS NOT NULL.
 	const stmt = env.DB.prepare(
-		"INSERT INTO events (event_name, distinct_id, user_id, session_id, client_ts, server_ts, url, referrer, ua, ip_country, app_id, props, business_user_id, platform, app_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		"INSERT OR IGNORE INTO events (event_name, distinct_id, user_id, session_id, client_ts, server_ts, url, referrer, ua, ip_country, app_id, props, business_user_id, platform, app_version, event_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
 	);
 	if (rows.length === 1) {
 		await stmt.bind(...rows[0]).run();

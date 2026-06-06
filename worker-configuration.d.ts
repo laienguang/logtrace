@@ -7,7 +7,7 @@ declare namespace Cloudflare {
 	}
 	interface Env {
 		GOOGLE_CLIENT_ID: "";
-		ALLOWED_EMAILS: "laienguang@gmail.com";
+		ALLOWED_EMAILS: "";
 		ALLOWED_EMAIL_DOMAIN: "";
 		DB: D1Database;
 		ASSETS: Fetcher;

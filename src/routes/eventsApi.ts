@@ -4,6 +4,7 @@ import { json } from "../respond";
 interface EventRow {
 	id: number;
 	event_name: string;
+	event_id: string | null;
 	distinct_id: string | null;
 	user_id: string | null;
 	session_id: string | null;
@@ -29,7 +30,7 @@ export async function handleEventsApi(request: Request, env: Env, url: URL): Pro
 }
 
 const SELECT_COLS =
-	"id, event_name, distinct_id, user_id, session_id, client_ts, server_ts, url, referrer, ua, ip_country, app_id, props, business_user_id, platform, app_version";
+	"id, event_name, event_id, distinct_id, user_id, session_id, client_ts, server_ts, url, referrer, ua, ip_country, app_id, props, business_user_id, platform, app_version";
 
 async function hydrate(rows: EventRow[], env: Env) {
 	const names = await loadAppNames(env);

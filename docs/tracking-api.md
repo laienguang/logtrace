@@ -60,6 +60,7 @@ X-App-Secret: sk_xxx
 ```json
 {
   "event_name": "page_view",
+  "event_id": "018f1c3e-7a2b-4d8e-9f10-1a2b3c4d5e6f",
   "distinct_id": "anon_001",
   "business_user_id": "u_98765",
   "session_id": "sess_abc",
@@ -132,6 +133,7 @@ X-App-Secret: sk_xxx
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
 | `event_name` | `string` | 是 | 事件名，最大 64 字符 |
+| `event_id` | `string` | 否 | 客户端生成的 UUID v4（建议），最大 64 字符。**用于幂等去重**：同 `(app_id, event_id)` 的重复上报只入库一次，重发会返回 `204` 但不再次入库。详见 § 13 |
 | `distinct_id` | `string` | 否 | 行为路径主键，匿名设备或浏览器标识，建议始终传，且**登录前后保持不变**。详见 § 7 |
 | `business_user_id` | `string` | 否 | 最大 64 字符。**接入方业务侧的用户 ID**（登录后传，未登录不传）。与 § 6 中由鉴权解析的 `user_id`（logtrace 平台应用归属用户）概念不同，前缀 `business_` 显式区分 |
 | `session_id` | `string` | 否 | 一次访问会话 ID |
@@ -144,9 +146,10 @@ X-App-Secret: sk_xxx
 
 ### 字段处理规则
 
-- `distinct_id`、`session_id`、`business_user_id`、`platform`、`app_version` 仅接受字符串
+- `distinct_id`、`session_id`、`business_user_id`、`platform`、`app_version`、`event_id` 仅接受字符串
 - 这些字符串字段会先做 `trim()`，空字符串会按 `null` 入库
-- 各自上限：`distinct_id` / `session_id` 256，`business_user_id` 64，`platform` 64，`app_version` 32；超出会被截断
+- 各自上限：`distinct_id` / `session_id` 256，`business_user_id` / `platform` / `event_id` 64，`app_version` 32；超出会被截断
+- `event_id` 若与同 `app_id` 已入库事件重复，服务端返回 `204` 但不再次入库（详见 § 13）
 - `client_ts` 只有在类型为数字时才会入库，否则记为 `null`
 - `props` 会被服务端 `JSON.stringify()` 后存储，序列化后最大 **16KB**（用于容纳后端 panic stack、长 prompt 等大字段）
 
@@ -176,7 +179,7 @@ X-App-Secret: sk_xxx
 
 | 状态码 | 含义 | 说明 |
 | --- | --- | --- |
-| `204` | 成功 | 已成功入库 |
+| `204` | 成功 | 已成功入库（含 `event_id` 命中去重的情况，详见 § 13） |
 | `400` | 请求错误 | JSON 非法、缺字段、字段超限等；批量场景中只要有一条非法整批返回 |
 | `403` | 鉴权失败 | 缺少凭证、凭证错误、应用已被吊销 |
 | `405` | 方法错误 | `/collect` 只支持 `POST` 和 `OPTIONS` |
@@ -266,6 +269,7 @@ curl -X POST http://localhost:8282/collect \
   -H 'x-app-secret: sk_xxx' \
   -d '{
     "event_name":"page_view",
+    "event_id":"018f1c3e-7a2b-4d8e-9f10-1a2b3c4d5e6f",
     "distinct_id":"anon-1",
     "business_user_id":"u_98765",
     "session_id":"s-1",
@@ -316,6 +320,7 @@ await fetch("https://<your-worker-domain>/collect", {
   },
   body: JSON.stringify({
     event_name: "page_view",
+    event_id: crypto.randomUUID(),      // 客户端生成，重发同一 event_id 不会重复入库
     distinct_id: "anon_001",            // 登录前后不变
     business_user_id: currentUser?.id,  // 登录后传，未登录省略
     session_id: "sess_abc",
@@ -343,6 +348,7 @@ await fetch("https://<your-worker-domain>/collect", {
   },
   body: JSON.stringify({
     event_name: "job_finished",
+    event_id: crypto.randomUUID(),
     distinct_id: "server-worker-1",
     platform: "backend",
     app_version: process.env.GIT_SHA,
@@ -362,5 +368,29 @@ await fetch("https://<your-worker-domain>/collect", {
 - `session_id` 建议按单次访问或单次打开 App 维度生成（推荐前后台切换 ≥30 分钟视为新 session）
 - `platform` 建议传，便于看板做端类型分桶
 - `app_version` 建议传，便于灰度发布期间排查不同版本的指标差异
+- `event_id` 建议**所有上报路径都生成**，尤其是带本地持久化缓冲、可能延迟重发的场景，确保幂等
 - 查询与统计以服务端时间 `server_ts` 为准，不建议依赖客户端时间做最终分析
 - 浏览器场景中 `app_secret` 无法完全保密，如发现被滥用，请在看板中吊销并重新生成应用凭证
+
+## 13. 事件去重与幂等
+
+为支持客户端重试、本地缓冲重发等场景，服务端提供基于 `event_id` 的幂等去重能力：
+
+- **去重维度**：`(app_id, event_id)`
+- **窗口长度**：永久 UNIQUE 约束。UUID v4 实际无冲突概率，做永久去重比时间窗口语义更简单
+- **命中行为**：服务端识别为重复事件后，返回 `204 No Content` 但不再次入库
+- **未传 event_id**：等同于"接入方放弃幂等保证"，重试将产生重复事件入库
+
+### 使用建议
+
+- 客户端上报前生成 UUID v4 作为 `event_id`，与事件本体一起持久化到本地缓冲
+- 上报成功后从缓冲清除；上报失败时保留并重试，`event_id` 不变
+- 跨进程 / 跨设备的同义事件应使用**不同**的 `event_id`，避免被误判为重复
+
+### 典型场景
+
+| 场景 | 推荐做法 |
+| --- | --- |
+| 客户端缓冲后批量上报 | 缓冲时即生成 `event_id`，多次重发使用同一 ID |
+| 后端 panic recover 上报 | `event_id` 在 recover 时生成，单次 panic 单一 ID |
+| 长连接断开后补传 | 与最初上报使用相同 `event_id`，确保不重复入库 |

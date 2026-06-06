@@ -28,6 +28,7 @@ export const fetcher = <T>(path: string) => api<T>(path);
 export interface EventItem {
 	id: number;
 	event_name: string;
+	event_id: string | null;
 	distinct_id: string | null;
 	user_id: string | null;
 	business_user_id: string | null;

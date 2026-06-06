@@ -19,11 +19,6 @@
 		"not_found_handling": "single-page-application",
 		"run_worker_first": true
 	},
-	"vars": {
-		"GOOGLE_CLIENT_ID": "327057932079-2esj1i1hpedflltiegba7n3gcbje07nv.apps.googleusercontent.com",
-		"ALLOWED_EMAILS": "",
-		"ALLOWED_EMAIL_DOMAIN": ""
-	},
 	"observability": {
 		"enabled": true
 	}
